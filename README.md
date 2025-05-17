@@ -19,3 +19,5 @@ Additionally, I’ve integrated RabbitMQ as a messaging queue to demonstrate mes
 ## Demo
   
   
+
+[![Watch the video](https://github.com/Getnett/ws-chat-app/blob/main/thumbnail.png)](https://github.com/Getnett/ws-chat-app/blob/main/video.mp4)

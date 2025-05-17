@@ -20,10 +20,11 @@
         class="border-t-2 border-gray-100 flex justify-between gap-2 pt-2 px-2"
       >
         <button
-          @click.prevent="handleConnectionToServer"
+          @click.prevent="handleConnectionToServer(socketConnected)"
           class="py-1 px-2 md:py-4 md:px-8 border-2 bg-green-500 text-white uppercase text-sm md:text-2xl cursor-pointer rounded-md"
         >
-          start
+          <span v-if="!socketConnected">Start</span>
+          <span v-if="socketConnected">Skip</span>
         </button>
         <div class="flex-1 flex items-center" id="input-wrapper">
           <input
@@ -55,12 +56,17 @@ import { useToast } from "vue-toast-notification";
 import "vue-toast-notification/dist/theme-sugar.css";
 
 const message = ref("");
+const socketConnected = ref(null);
 const messageContainer = ref(null);
-let counter = 0;
 const toast = useToast();
 
-function handleConnectionToServer() {
-  socket.connect();
+function handleConnectionToServer(scktConnected) {
+  if (scktConnected) {
+    socket.disconnect();
+    socketConnected.value = null;
+  } else {
+    socketConnected.value = socket.connect();
+  }
 }
 
 function sendEventManually(socketArg, event, arg) {
@@ -72,12 +78,6 @@ function sendEventManually(socketArg, event, arg) {
 }
 
 function sendMessageToRandomUser() {
-  // const clientOffset = `${socket.id}-${counter++}`;
-  // console.log("clientOffset", "");
-  // sendEventManually(socket, "chat messages", message.value);
-  // socket.timeout(5000).emit("chat messages", message.value, (err) => {});
-  // console.log("Proof of uniqueness", clientOffset);
-
   if (message.value) {
     const listItem = document.createElement("li");
     listItem.textContent = `You : ${message.value}`;
@@ -93,25 +93,11 @@ watch(state, () => {
 });
 
 socket.on("chatMessage", (msg) => {
-  console.log("msg : ", msg);
-  // console.log("svOffset", svOffset);
-  // // @ts-ignore
-  // socket.auth.serverOffset = svOffset;
-
-  // const payload = {
-  //       from: socket.id,
-  //       to: partner.id,
-  //       message: msg,
-  //       timestamp: Date.now(),
-  //     };
-
   if (messageContainer.value) {
     const listItem = document.createElement("li");
     listItem.textContent = `Stranger : ${msg.message}`;
     messageContainer.value.appendChild(listItem);
   }
-
-  console.log(" socket.auth.serverOffset", socket.auth.serverOffset);
 });
 
 socket.on("partnerDisconnected", (msg) => {

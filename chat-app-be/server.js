@@ -3,7 +3,6 @@ import express from "express";
 import { createServer } from "http";
 import { Server } from "socket.io";
 import amqp from "amqplib";
-import redis from "redis";
 
 /**
  * RabbitMQManager handles connection to RabbitMQ,
@@ -20,7 +19,6 @@ class RabbitMQManager {
       const connection = await amqp.connect(this.url);
       this.channel = await connection.createChannel();
       await this.channel.assertQueue("chat_messages", { durable: false });
-      console.log("Connected to RabbitMQ");
     } catch (err) {
       console.error("RabbitMQ connection error:", err);
     }
@@ -61,19 +59,9 @@ class ChatPairManager {
   constructor(sockets) {
     this.waitingSocket = null;
     this.pairings = {}; // mapping: socket.id => partnerSocket
-    this.socketsConnected = [];
-    console.log("this.socketsConnected", this.socketsConnected);
   }
 
   pairSocket(socket) {
-    console.log("this.socketsConnected-pairSocket", this.socketsConnected);
-    console.log("waiting", this.waitingSocket);
-    // console.log(
-    //   "finsing",
-    //   this.socketsConnected.find(
-    //     (socketP) => socketP.connected && this.waitingSocket.id !== socketP.id
-    //   )
-    // );
     if (this.waitingSocket && this.waitingSocket.id !== socket.id) {
       console.log("pair-Socket");
       // Pair the waiting socket with the current one.
@@ -81,28 +69,7 @@ class ChatPairManager {
       this.pairings[socket.id] = this.waitingSocket;
       const partnerSocket = this.waitingSocket;
       this.waitingSocket = null;
-      // console.log("pairings", this.pairings);
-      // console.log("pairSocket()", { paired: true, partner: partnerSocket });
-      // console.log("partnerSocket", partnerSocket);
-      return { paired: true, partner: partnerSocket };
-    } else if (
-      !this.waitingSocket &&
-      this.socketsConnected.find(
-        (socketP) => socketP.connected && socketP.id !== socket.id
-      )
-    ) {
-      console.log("Second logic");
-      const socketToPair = this.socketsConnected.find(
-        (socketP) => socketP.connected && socketP.id !== socket.id
-      );
-      this.waitingSocket = socket;
-      this.pairings[this.waitingSocket.id] = socketToPair;
-      this.pairings[socketToPair.id] = this.waitingSocket;
-      const partnerSocket = this.waitingSocket;
-      this.waitingSocket = null;
-      // console.log("pairings", this.pairings);
-      // console.log("pairSocket()", { paired: true, partner: partnerSocket });
-      // console.log("partnerSocket", partnerSocket);
+
       return { paired: true, partner: partnerSocket };
     } else {
       console.log("Mark it as waiting");
@@ -119,7 +86,10 @@ class ChatPairManager {
     }
     // If socket had a pairing, remove the pairing.
     const partner = this.pairings[socket.id];
+
     if (partner) {
+      this.waitingSocket = partner; // new addition
+      partner.emit("waiting", { message: "Waiting for a partner..." });
       delete this.pairings[partner.id];
       delete this.pairings[socket.id];
       return partner;
@@ -129,13 +99,6 @@ class ChatPairManager {
 
   getPartner(socketId) {
     return this.pairings[socketId];
-  }
-
-  setSockets(socket) {
-    console.dir("sockets before", this.socketsConnected);
-    console.log("new socket added", socket);
-
-    this.socketsConnected.push(socket);
   }
 }
 
@@ -164,10 +127,8 @@ class ChatServer {
     );
 
     this.io.on("connection", (socket) => {
-      console.dir(socket.handshake.headers);
-      console.dir(`User connected: ${socket.handshake.headers}`);
+      console.log("socket-given-id", socket.id);
 
-      this.pairManager.setSockets(socket);
       this.handleConnection(socket);
     });
 
